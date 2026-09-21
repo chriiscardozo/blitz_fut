@@ -3,6 +3,8 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+# Local PythonAnywhere credentials; never commit this file.
+.env.pythonanywhere
 
 # Local runtime data and reports
 *.log

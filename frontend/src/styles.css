@@ -1,0 +1,4 @@
+:root { font-synthesis: none; text-rendering: optimizeLegibility; }
+html { min-width: 320px; min-height: 100%; scroll-behavior: smooth; }
+body, #root { min-width: 320px; min-height: 100vh; }
+a { color: inherit; }

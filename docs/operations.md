@@ -1,6 +1,6 @@
 # Blitz Fut — Operations Runbook
 
-Last updated: 2026-09-17
+Last updated: 2026-09-21
 
 This runbook covers the single live PythonAnywhere environment. There is no hosted staging environment. Replace every value in angle brackets before running a command.
 
@@ -20,6 +20,15 @@ The database and backups deliberately live outside the Git checkout.
 ## 2. Initial PythonAnywhere deployment
 
 PythonAnywhere's current `innit` system image supports Python 3.13. Confirm the account's system image under `Account > System image` before continuing.
+
+The repository includes `scripts/pythonanywhere-bootstrap.sh` and
+`scripts/pythonanywhere_wsgi.py` for the automated path used by the initial live
+deployment. The bootstrap expects a release archive at
+`/home/<username>/blitz-fut-deploy.tar.gz`, installs the locked Python
+dependencies, generates the secret environment file with owner-only
+permissions, applies migrations, and runs Django's deployment checks. The WSGI
+entry point loads that private environment file without placing secrets in the
+repository. The manual equivalent follows for recovery and auditing purposes.
 
 1. Upload or clone the repository into `/home/<username>/blitz_fut`.
 2. Build `frontend/dist` locally and upload that directory separately after cloning the repository. The generated build is intentionally excluded from the portfolio branch. Do not install the frontend toolchain on a free PythonAnywhere account; its storage and CPU requirements can exceed the free allowance.

@@ -7,9 +7,10 @@ football cup among friends. It covers the complete competition lifecycle, from
 initial format configuration and team setup through group standings, knockout
 progression, the final, and an optional third-place match.
 
-The MVP is implemented, covered by automated backend tests, and has completed
-manual end-to-end acceptance testing. Deployment to PythonAnywhere is the next
-release step.
+The MVP is implemented, covered by automated backend tests, has completed
+manual end-to-end acceptance testing, and is deployed on PythonAnywhere.
+
+**Live application:** [chriiscardozo.pythonanywhere.com](https://chriiscardozo.pythonanywhere.com)
 
 ![Generated design preview of the Blitz Fut group standings](docs/ui-previews/public-groups-v1.png)
 
@@ -89,7 +90,7 @@ and [data model](docs/data-model.md).
 | Frontend tooling | Vite, Node.js 24 LTS, npm |
 | Authentication | Django sessions, Argon2id, CSRF protection |
 | Tests | pytest and pytest-django |
-| Hosting target | PythonAnywhere |
+| Hosting | PythonAnywhere |
 
 ## Run locally
 
@@ -137,10 +138,11 @@ npm run build
 
 ## Deployment and operations
 
-The deployment target is a single PythonAnywhere web application using a
+The live deployment is a single PythonAnywhere web application using a
 persistent SQLite database outside the Git checkout. The Vite production build
 is generated locally and transferred separately because generated files are not
-committed to the portfolio branch.
+committed to the portfolio branch. Reusable bootstrap and WSGI entry-point
+scripts are kept in [`scripts/`](scripts/).
 
 The complete deployment, backup, restoration, and smoke-test procedures are in
 the [operations runbook](docs/operations.md).

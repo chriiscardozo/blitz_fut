@@ -36,6 +36,8 @@ their prompts are available in [docs/ui-previews](docs/ui-previews)._
   without storing an unnecessary penalty score.
 - Provide public, read-only competition pages and a protected administrator
   workflow.
+- Let the administrator permanently delete a competition after typing its
+  exact name; reusable player records remain available for other editions.
 - Back up and restore the SQLite database using application-aware management
   commands.
 

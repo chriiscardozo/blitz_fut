@@ -1,14 +1,25 @@
 import pytest
 from django.core.exceptions import ValidationError
 
-from competitions.models import Competition, Player
+from competitions.models import (
+    Competition,
+    Group,
+    GroupMembership,
+    Match,
+    Player,
+    PlayerMatchStat,
+    RosterMembership,
+    Round,
+    Team,
+    TeamMatchStat,
+)
 from competitions.selectors import search_players
 from competitions.services import (
     assign_player_to_team,
     create_competition,
     create_player,
     create_team,
-    delete_empty_draft_competition,
+    delete_competition,
     delete_unreferenced_player,
     rename_competition,
     rename_team,
@@ -55,8 +66,9 @@ def test_team_rename_rejects_blank_duplicate_and_overlong_names():
             rename_team(team=team_a, name=invalid_name)
 
 
+@pytest.mark.parametrize("status", Competition.Status.values)
 @pytest.mark.django_db
-def test_only_empty_draft_competition_can_be_deleted():
+def test_competition_can_be_deleted_at_any_stage(status):
     competition = create_competition(
         name="Disposable Cup",
         year=2026,
@@ -66,20 +78,118 @@ def test_only_empty_draft_competition_can_be_deleted():
         third_place_enabled=False,
     )
     competition_id = competition.id
-    delete_empty_draft_competition(competition=competition)
-    assert not Competition.objects.filter(id=competition_id).exists()
+    create_team(competition=competition, name="A")
+    competition.status = status
+    competition.save(update_fields=["status"])
 
+    delete_competition(competition=competition, confirmed_name="Disposable Cup")
+
+    assert not Competition.objects.filter(id=competition_id).exists()
+    assert not Team.objects.filter(competition_id=competition_id).exists()
+    assert not Group.objects.filter(competition_id=competition_id).exists()
+
+
+@pytest.mark.django_db
+def test_competition_deletion_removes_history_but_preserves_global_players():
     competition = create_competition(
-        name="Used Cup",
+        name="Played Cup",
+        year=2026,
+        group_count=1,
+        total_team_count=4,
+        qualifiers_per_group=4,
+        third_place_enabled=False,
+    )
+    other = create_competition(
+        name="Other Cup",
+        year=2027,
+        group_count=1,
+        total_team_count=2,
+        qualifiers_per_group=2,
+        third_place_enabled=False,
+    )
+    group = competition.groups.get()
+    teams = [create_team(competition=competition, name=name) for name in "ABCD"]
+    for team in teams:
+        GroupMembership.objects.create(group=group, team=team)
+    player = create_player(name="Reusable Player")
+    membership = RosterMembership.objects.create(
+        competition=competition, team=teams[0], player=player
+    )
+    other_team = create_team(competition=other, name="Other Team")
+    other_membership = RosterMembership.objects.create(
+        competition=other, team=other_team, player=player
+    )
+    group_round = Round.objects.create(
+        competition=competition, stage=Round.Stage.GROUP, number=1
+    )
+    group_match = Match.objects.create(
+        round=group_round,
+        group=group,
+        position=1,
+        team_a=teams[0],
+        team_b=teams[1],
+        status=Match.Status.COMPLETED,
+    )
+    PlayerMatchStat.objects.create(
+        match=group_match, roster_membership=membership, goals=1, assists=0
+    )
+    TeamMatchStat.objects.create(match=group_match, team=teams[0], own_goals_received=0)
+    knockout_round = Round.objects.create(
+        competition=competition, stage=Round.Stage.KNOCKOUT, number=1
+    )
+    semifinal_a = Match.objects.create(
+        round=knockout_round, position=1, team_a=teams[0], team_b=teams[2]
+    )
+    semifinal_b = Match.objects.create(
+        round=knockout_round, position=2, team_a=teams[1], team_b=teams[3]
+    )
+    final_round = Round.objects.create(
+        competition=competition, stage=Round.Stage.KNOCKOUT, number=2
+    )
+    Match.objects.create(
+        round=final_round,
+        position=1,
+        kind=Match.Kind.FINAL,
+        source_match_a=semifinal_a,
+        source_outcome_a=Match.SourceOutcome.WINNER,
+        source_match_b=semifinal_b,
+        source_outcome_b=Match.SourceOutcome.WINNER,
+    )
+    competition.status = Competition.Status.COMPLETED
+    competition.save(update_fields=["status"])
+
+    delete_competition(competition=competition, confirmed_name=competition.name)
+
+    assert not Competition.objects.filter(id=competition.id).exists()
+    assert not Group.objects.filter(competition_id=competition.id).exists()
+    assert not Team.objects.filter(competition_id=competition.id).exists()
+    assert not Round.objects.filter(competition_id=competition.id).exists()
+    assert Match.objects.count() == 0
+    assert PlayerMatchStat.objects.count() == 0
+    assert TeamMatchStat.objects.count() == 0
+    assert not RosterMembership.objects.filter(competition_id=competition.id).exists()
+    assert Player.objects.filter(id=player.id).exists()
+    assert RosterMembership.objects.filter(id=other_membership.id).exists()
+    assert Competition.objects.filter(id=other.id).exists()
+
+
+@pytest.mark.django_db
+def test_competition_deletion_requires_exact_name_and_changes_nothing_on_mismatch():
+    competition = create_competition(
+        name="Protected Cup",
         year=2026,
         group_count=1,
         total_team_count=2,
         qualifiers_per_group=2,
         third_place_enabled=False,
     )
-    create_team(competition=competition, name="A")
-    with pytest.raises(ValidationError, match="empty draft"):
-        delete_empty_draft_competition(competition=competition)
+    team = create_team(competition=competition, name="A")
+
+    with pytest.raises(ValidationError, match="exact competition name"):
+        delete_competition(competition=competition, confirmed_name="Protected cup")
+
+    assert Competition.objects.filter(id=competition.id).exists()
+    assert Team.objects.filter(id=team.id).exists()
 
 
 @pytest.mark.django_db

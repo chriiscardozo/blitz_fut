@@ -19,6 +19,7 @@ from competitions.models import (
 )
 from competitions.schemas import (
     CompetitionCreateIn,
+    CompetitionDeletionIn,
     CompetitionOut,
     ConfirmationIn,
     DrawLotsIn,
@@ -44,7 +45,7 @@ from competitions.services import (
     create_competition,
     create_player_and_assign,
     create_team,
-    delete_empty_draft_competition,
+    delete_competition,
     delete_team,
     delete_unreferenced_player,
     finalize_group_stage,
@@ -90,8 +91,13 @@ def rename_competition_endpoint(request, competition_id: int, payload: NameIn):
     "/admin/competitions/{competition_id}",
     response=MessageOut,
 )
-def delete_competition_endpoint(request, competition_id: int):
-    delete_empty_draft_competition(competition=_competition(competition_id))
+def delete_competition_endpoint(
+    request, competition_id: int, payload: CompetitionDeletionIn
+):
+    delete_competition(
+        competition=_competition(competition_id),
+        confirmed_name=payload.confirmed_name,
+    )
     return {"detail": "Competition deleted."}
 
 

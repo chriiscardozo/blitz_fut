@@ -35,7 +35,7 @@ from competitions.services.knockout import (
     seed_slots,
 )
 from competitions.services.management import (
-    delete_empty_draft_competition,
+    delete_competition,
     delete_unreferenced_player,
     rename_competition,
     rename_team,
@@ -51,7 +51,7 @@ __all__ = [
     "create_player_and_assign",
     "create_team",
     "delete_team",
-    "delete_empty_draft_competition",
+    "delete_competition",
     "delete_unreferenced_player",
     "build_round_robin",
     "build_knockout_team_order",

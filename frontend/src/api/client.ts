@@ -105,8 +105,10 @@ export const api = {
     request<Competition>(`/admin/competitions/${id}`, {
       method: "PATCH", body: JSON.stringify({ name }),
     }),
-  deleteCompetition: (id: number) =>
-    request<{ detail: string }>(`/admin/competitions/${id}`, { method: "DELETE" }),
+  deleteCompetition: (id: number, confirmedName: string) =>
+    request<{ detail: string }>(`/admin/competitions/${id}`, {
+      method: "DELETE", body: JSON.stringify({ confirmed_name: confirmedName }),
+    }),
   createTeam: (competitionId: number, name: string) =>
     request<Team>(`/admin/competitions/${competitionId}/teams`, {
       method: "POST", body: JSON.stringify({ name }),

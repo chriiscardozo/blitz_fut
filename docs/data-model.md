@@ -1,7 +1,7 @@
 # Blitz Fut — Data Model
 
 Status: Initial model implemented
-Last updated: 2026-09-17
+Last updated: 2026-09-21
 Related document: [Product brief](product-brief.md)
 
 ## 1. Purpose
@@ -18,7 +18,7 @@ This is an implementation model rather than a public API contract. Django Ninja 
 - Put simple row-local invariants in database constraints.
 - Put cross-row, aggregate, and lifecycle invariants in transactional domain services.
 - Treat a competition edition as the aggregate boundary for structural operations.
-- Preserve completed competition history; destructive editing is limited to explicitly permitted setup and reopening workflows.
+- Preserve completed competition history by default; whole-competition deletion is a separate, explicitly confirmed administrator action.
 - Do not persist incomplete match-result drafts.
 - Do not add a separate drawing-of-lots resolution model for the MVP.
 
@@ -319,7 +319,7 @@ stateDiagram-v2
 
 ### `COMPLETED`
 
-- The entire competition is public, archived, and read-only except for permitted descriptive-name corrections.
+- The entire competition is public, archived, and read-only except for permitted descriptive-name corrections and explicit whole-competition deletion.
 - Reopening stages or changing results is not permitted by the MVP workflows.
 
 ## 7. Invariant ownership
@@ -444,8 +444,10 @@ The UI's unsaved counters never reach the public data model.
 
 ## 9. Deletion and correction policy
 
-- A draft competition may be deleted as one aggregate.
-- A competition with a completed result is archived rather than deleted.
+- An administrator may permanently delete a competition at any stage after
+  confirming its exact name. Deletion removes competition-specific teams,
+  rosters, fixtures, results, and statistics atomically, while global player
+  records remain available for reuse in other competitions.
 - Draft teams and roster memberships may be deleted while structural editing is allowed.
 - A global player may be deleted only when no roster membership or historical statistic references it.
 - Generated pending group fixtures are deleted only through `Return to setup`.

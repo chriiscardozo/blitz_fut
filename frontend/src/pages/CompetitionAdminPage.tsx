@@ -51,8 +51,8 @@ export function CompetitionAdminPage() {
     (round) => round.matches.every((match) => match.status === "COMPLETED"),
   );
 
-  async function deleteCompetition() {
-    try { await api.deleteCompetition(id); navigate("/admin"); }
+  async function deleteCompetition(confirmedName: string) {
+    try { await api.deleteCompetition(id, confirmedName); navigate("/admin"); }
     catch (value) { setActionError(errorMessage(value)); }
   }
 
@@ -83,11 +83,6 @@ export function CompetitionAdminPage() {
       {competition.status === "DRAFT" && (
         <>
           <DraftSetup competition={competition} groups={data.groups} teams={data.teams} run={run} />
-          {data.teams.length === 0 && (
-            <Box sx={{ borderTop: 1, borderColor: "divider", pt: 2 }}>
-              <ConfirmAction label="Delete empty draft" title="Delete this competition?" description="This empty draft and its configuration will be permanently removed." confirmLabel="Delete competition" color="error" onConfirm={deleteCompetition} />
-            </Box>
-          )}
         </>
       )}
 
@@ -143,6 +138,18 @@ export function CompetitionAdminPage() {
       {competition.status === "COMPLETED" && (
         <Alert severity="success">Competition completed{data.detail.champion ? ` — ${data.detail.champion.name} are the champions.` : "."} Historical results are read-only.</Alert>
       )}
+
+      <Box sx={{ borderTop: 1, borderColor: "divider", pt: 2 }}>
+        <ConfirmAction
+          label="Delete competition"
+          title={`Delete ${competition.name}?`}
+          description="This permanently removes the competition, its teams, rosters, fixtures, results, and statistics. Reusable player records remain. Download a backup first if you may need this history later."
+          confirmLabel="Permanently delete"
+          confirmationText={competition.name}
+          color="error"
+          onConfirm={deleteCompetition}
+        />
+      </Box>
 
       <Snackbar open={Boolean(notice)} autoHideDuration={3500} onClose={() => setNotice("")} message={notice} />
     </Stack>

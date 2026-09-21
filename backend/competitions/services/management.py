@@ -1,7 +1,7 @@
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.db import transaction
 
-from competitions.models import Competition, Player, Team
+from competitions.models import Competition, Match, Player, RosterMembership, Team
 from competitions.services.common import normalize_required_name
 
 
@@ -25,19 +25,21 @@ def rename_team(*, team: Team, name: str) -> Team:
 
 
 @transaction.atomic
-def delete_empty_draft_competition(*, competition: Competition) -> None:
-    if competition.status != Competition.Status.DRAFT:
-        raise ValidationError(
-            {NON_FIELD_ERRORS: ["Only a draft competition can be deleted."]}
-        )
-    if competition.teams.exists():
+def delete_competition(*, competition: Competition, confirmed_name: str) -> None:
+    if confirmed_name != competition.name:
         raise ValidationError(
             {
                 NON_FIELD_ERRORS: [
-                    "Only an empty draft can be deleted; remove its teams first."
+                    "Type the exact competition name to confirm deletion."
                 ]
             }
         )
+
+    # Delete dependents before their protected team and roster references.
+    # Match deletion also removes player/team statistics and all bracket links.
+    Match.objects.filter(round__competition=competition).delete()
+    RosterMembership.objects.filter(competition=competition).delete()
+    Team.objects.filter(competition=competition).delete()
     competition.delete()
 
 

@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import Client, RequestFactory
 
-from competitions.models import Match
+from competitions.models import Competition, Match
 from competitions.services import (
     assign_team_to_group,
     create_competition,
@@ -108,6 +108,41 @@ def test_admin_mutations_require_an_authorized_session_and_csrf():
     )
     assert response.status_code == 201
     assert response.json()["name"] == "Admin Cup"
+
+
+@pytest.mark.django_db
+def test_competition_deletion_requires_admin_csrf_and_exact_name():
+    competition = create_competition(
+        name="Delete Through API",
+        year=2026,
+        group_count=1,
+        total_team_count=2,
+        qualifiers_per_group=2,
+        third_place_enabled=False,
+    )
+    create_team(competition=competition, name="A")
+    path = f"/api/admin/competitions/{competition.id}"
+    payload = {"confirmed_name": competition.name}
+
+    anonymous = Client(enforce_csrf_checks=True)
+    anonymous_csrf = anonymous.get("/api/auth/csrf").json()["csrf_token"]
+    assert json_request(anonymous, "delete", path, payload, csrf=anonymous_csrf).status_code == 401
+
+    client, csrf = logged_in_admin_client(username="deletion-admin")
+    assert json_request(client, "delete", path, payload).status_code == 403
+    assert json_request(client, "delete", path, {}, csrf=csrf).status_code == 422
+    wrong_name = json_request(
+        client, "delete", path, {"confirmed_name": "Something else"}, csrf=csrf
+    )
+    assert wrong_name.status_code == 422
+    assert Competition.objects.filter(id=competition.id).exists()
+
+    response = json_request(client, "delete", path, payload, csrf=csrf)
+    assert response.status_code == 200
+    assert response.json() == {"detail": "Competition deleted."}
+    assert not Competition.objects.filter(id=competition.id).exists()
+    assert client.get(f"/api/competitions/{competition.id}").status_code == 404
+    assert json_request(client, "delete", path, payload, csrf=csrf).status_code == 404
 
 
 @pytest.mark.django_db

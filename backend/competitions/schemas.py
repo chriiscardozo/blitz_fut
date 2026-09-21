@@ -25,6 +25,10 @@ class ConfirmationIn(Schema):
     confirmed: bool
 
 
+class CompetitionDeletionIn(Schema):
+    confirmed_name: str = Field(min_length=1, max_length=120)
+
+
 class CompetitionOut(Schema):
     id: int
     name: str

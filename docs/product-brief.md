@@ -348,6 +348,7 @@ Examples:
 
 - Login.
 - Competition creation and configuration.
+- Explicitly confirmed deletion of a competition and its associated history.
 - Team, player, and roster management.
 - Group assignment and fixture generation.
 - Group match result and statistics entry.

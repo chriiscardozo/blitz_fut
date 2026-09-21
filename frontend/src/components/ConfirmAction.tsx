@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
+  Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField,
 } from "@mui/material";
 
 type Props = {
@@ -10,28 +10,54 @@ type Props = {
   confirmLabel?: string;
   color?: "primary" | "error";
   disabled?: boolean;
-  onConfirm: () => Promise<void> | void;
+  confirmationText?: string;
+  onConfirm: (confirmation: string) => Promise<void> | void;
 };
 
 export function ConfirmAction({
   label, title, description, confirmLabel = "Confirm", color = "primary",
-  disabled = false, onConfirm,
+  disabled = false, confirmationText, onConfirm,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [enteredText, setEnteredText] = useState("");
+
+  function close() {
+    if (busy) return;
+    setOpen(false);
+    setEnteredText("");
+  }
+
   async function confirm() {
     setBusy(true);
-    try { await onConfirm(); setOpen(false); } finally { setBusy(false); }
+    try {
+      await onConfirm(enteredText);
+      setOpen(false);
+      setEnteredText("");
+    } finally { setBusy(false); }
   }
   return (
     <>
       <Button color={color} disabled={disabled} onClick={() => setOpen(true)}>{label}</Button>
-      <Dialog open={open} onClose={() => !busy && setOpen(false)}>
+      <Dialog open={open} onClose={close}>
         <DialogTitle>{title}</DialogTitle>
-        <DialogContent><DialogContentText>{description}</DialogContentText></DialogContent>
+        <DialogContent>
+          <DialogContentText>{description}</DialogContentText>
+          {confirmationText !== undefined && (
+            <TextField
+              autoFocus
+              fullWidth
+              label="Competition name"
+              helperText={`Type ${confirmationText} to confirm.`}
+              value={enteredText}
+              onChange={(event) => setEnteredText(event.target.value)}
+              sx={{ mt: 2 }}
+            />
+          )}
+        </DialogContent>
         <DialogActions>
-          <Button disabled={busy} onClick={() => setOpen(false)}>Cancel</Button>
-          <Button color={color} variant="contained" disabled={busy} onClick={() => void confirm()}>
+          <Button disabled={busy} onClick={close}>Cancel</Button>
+          <Button color={color} variant="contained" disabled={busy || (confirmationText !== undefined && enteredText !== confirmationText)} onClick={() => void confirm()}>
             {busy ? "Working…" : confirmLabel}
           </Button>
         </DialogActions>

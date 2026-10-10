@@ -13,12 +13,14 @@ def test_initial_configuration_creates_draft_and_groups():
         group_count=2,
         total_team_count=8,
         qualifiers_per_group=2,
+        first_place_bye_enabled=False,
         third_place_enabled=True,
     )
 
     assert competition.status == Competition.Status.DRAFT
     assert competition.teams_per_group == 4
     assert competition.total_team_count == 8
+    assert competition.first_place_bye_enabled is False
     assert list(competition.groups.values_list("ordinal", flat=True)) == [1, 2]
     assert competition.teams.count() == 0
 

@@ -1,7 +1,7 @@
 # Blitz Fut — Product Brief
 
 Status: Living document
-Last updated: 2026-09-17
+Last updated: 2026-10-10
 
 ## 1. Product summary
 
@@ -34,7 +34,8 @@ The following are outside the scope of this project:
 - Player accounts.
 - Public user registration.
 - Wildcard qualification across groups.
-- Knockout byes.
+- Knockout byes other than the configured first-place advancement for
+  odd-sized groups.
 - Multiple group phases, group-only competitions, knockout-only competitions, double elimination, or two-legged ties.
 - A ChatGPT plugin or embedded ChatGPT UI for the MVP.
 
@@ -117,6 +118,8 @@ Let:
 - `M = T / G` be the derived number of teams in each group.
 - `Q` be the number of qualifiers from each group.
 - `K = G × Q` be the total number of knockout teams.
+- `B` indicate whether each group winner advances directly past the first
+  knockout round.
 
 The MVP enforces these invariants:
 
@@ -124,18 +127,21 @@ The MVP enforces these invariants:
 - `T` must divide evenly by `G`.
 - Every group has the same number of teams, `M`.
 - `M >= 2`, with no application-defined maximum.
-- `Q` is a power of two: 1, 2, 4, 8, and so on.
+- Normally, `Q` is a power of two: 1, 2, 4, 8, and so on.
+- When `B` is enabled, `M` must be odd and `Q = 3`.
 - `Q <= M`.
-- `K >= 2` and `K` is a power of two.
+- `K >= 2`; normally `K` is a power of two. With `B`, `K = 3G` and
+  the bracket has `G` first-round byes, one for each group winner.
 - Every competition team belongs to exactly one group.
 - Every group qualifies the same number of teams.
-- There are no wildcards and no knockout byes.
+- There are no wildcards or other knockout byes.
 
 Examples of valid configurations:
 
 | Groups | Teams per group | Qualifiers per group | Knockout teams | First knockout round |
 | ---: | ---: | ---: | ---: | --- |
 | 1 | 4 | 2 | 2 | Final |
+| 1 | 5 | 3 | 3 | Semifinal (1st-place bye) |
 | 1 | 5 | 4 | 4 | Semifinals |
 | 2 | 4 | 1 | 2 | Final |
 | 2 | 4 | 2 | 4 | Semifinals |
@@ -164,7 +170,7 @@ Examples of valid configurations:
 ### Configuration locking
 
 - Initial competition configuration is a creation step before the persisted `DRAFT` lifecycle and before any teams or assignments exist.
-- The administrator enters the competition name and year, total number of teams `T`, number of groups `G`, qualifiers per group `Q`, and whether a third-place match is enabled.
+- The administrator enters the competition name and year, total number of teams `T`, number of groups `G`, qualifiers per group `Q`, whether first place advances past the first knockout round, and whether a third-place match is enabled.
 - The application validates the format, derives `M = T / G`, and atomically creates the `DRAFT` competition and its `G` empty groups. It does not persist a partially configured competition.
 - The initial format values are locked after creation. An incorrect empty draft can be discarded and recreated before teams are added.
 - During `DRAFT`, participating teams, rosters, and group assignments are editable, but exactly `T` teams must exist before fixtures can be generated.
@@ -266,7 +272,7 @@ There is no separate manual normal-time score entry. Player goals and assists ar
 
 ### Rounds
 
-The knockout rounds are derived from `K`:
+Normally the knockout rounds are derived from `K`:
 
 - 2 teams: final.
 - 4 teams: semifinals, then final.
@@ -275,6 +281,13 @@ The knockout rounds are derived from `K`:
 - The same pattern continues for larger valid powers of two.
 
 The final is always created and cannot be disabled. A third-place match is optional and can only be enabled when `K >= 4`.
+
+When first-place advancement is enabled, exactly three teams qualify from each
+odd-sized group. Each group winner is placed directly into the second knockout
+round, while the second- and third-place qualifiers enter the first round. For
+one group, this produces a semifinal between 2nd and 3rd, whose winner meets
+1st in the final. For multiple groups, adjacent groups are cross-seeded in the
+first round and their group winners enter the next round.
 
 ### Seeding
 
@@ -287,6 +300,9 @@ The final is always created and cannot be disabled. A third-place match is optio
 - Within each group pair, qualifiers are cross-seeded by group position: the best qualifier from one group faces the lowest qualifier from the other group, continuing inward.
 - Each adjacent group pair occupies one contiguous bracket block. Winners remain inside that block until one block winner emerges; adjacent block winners then meet in subsequent rounds.
 - With a single group, qualifiers are seeded only by their group position using the same standard single-elimination placement.
+- With first-place advancement, each adjacent group pair starts with `L2 vs R3`
+  and `R2 vs L3`; `L1` and `R1` enter the next round against the opposite
+  first-round winner. With one group, 2nd plays 3rd and 1st awaits the winner.
 - No random draw is used to place knockout teams.
 
 Examples:

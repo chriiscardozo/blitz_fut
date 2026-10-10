@@ -23,6 +23,7 @@ def competition_data(competition: Competition) -> dict[str, object]:
         "knockout_team_count": (
             competition.group_count * competition.qualifiers_per_group
         ),
+        "first_place_bye_enabled": competition.first_place_bye_enabled,
         "third_place_enabled": competition.third_place_enabled,
     }
 

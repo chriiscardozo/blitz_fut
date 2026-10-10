@@ -14,6 +14,7 @@ export type Competition = {
   total_team_count: number;
   qualifiers_per_group: number;
   knockout_team_count: number;
+  first_place_bye_enabled: boolean;
   third_place_enabled: boolean;
 };
 

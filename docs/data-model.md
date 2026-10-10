@@ -1,7 +1,7 @@
 # Blitz Fut — Data Model
 
 Status: Initial model implemented
-Last updated: 2026-09-21
+Last updated: 2026-10-10
 Related document: [Product brief](product-brief.md)
 
 ## 1. Purpose
@@ -61,7 +61,8 @@ One configured cup edition.
 | `status` | `CharField` with choices | `DRAFT`, `GROUP_STAGE`, `KNOCKOUT`, or `COMPLETED`. |
 | `group_count` | `PositiveSmallIntegerField` | `G`; must be a power of two. |
 | `teams_per_group` | `PositiveSmallIntegerField` | `M >= 2`. |
-| `qualifiers_per_group` | `PositiveSmallIntegerField` | `Q`; power of two and `Q <= M`. |
+| `qualifiers_per_group` | `PositiveSmallIntegerField` | `Q`; normally a power of two, or exactly 3 with first-place advancement; `Q <= M`. |
+| `first_place_bye_enabled` | `BooleanField` | May be true only when `M` is odd and `Q = 3`. |
 | `third_place_enabled` | `BooleanField` | May be true only when `G × Q >= 4`. |
 
 The administrator enters total team count `T` during the initial creation step. The creation service requires `T` to divide evenly by `G`, stores the derived `M = T / G` in `teams_per_group`, and creates the `G` empty group rows in the same transaction. `T` remains derived as `G × M` rather than being stored in a second column.
@@ -200,8 +201,11 @@ Constraints and service rules:
 - `team_a` and `team_b` must be different when both are present.
 - Match teams, group, and round must belong to the same competition.
 - Group matches use `kind = REGULAR`, have a group, have no source matches, and never have a shootout winner.
-- The initial knockout round has assigned teams and no source matches.
-- Later knockout rounds have source matches; participants are populated as those sources complete.
+- In the standard format, the initial knockout round has assigned teams and no
+  source matches; later-round participants are populated from source matches.
+- With first-place advancement, each second-round match has its group winner
+  assigned directly on one side and a first-round winner as the other source.
+  Subsequent rounds use two source matches normally.
 - When semifinals exist, final sources provide their winners.
 - Optional third-place sources provide semifinal losers.
 - A pending future knockout match may have one or both team fields null.
@@ -344,7 +348,9 @@ The database should enforce invariants that depend only on the current row or a 
 
 Services enforce invariants requiring queries, aggregates, lifecycle knowledge, or multiple writes:
 
-- Power-of-two competition configuration, implemented by the competition-configuration validation service.
+- Power-of-two competition configuration and the three-qualifier first-place
+  advancement exception, implemented by the competition-configuration
+  validation service.
 - Equal and complete group sizes.
 - Cross-model competition consistency.
 - Structural and roster locks.
@@ -366,8 +372,8 @@ Each operation below runs inside one `transaction.atomic()` block.
 
 ### Create competition from initial configuration
 
-1. Accept `T`, `G`, `Q`, and the third-place choice before any draft data exists.
-2. Validate the power-of-two rules, `T` divisibility, `M >= 2`, `Q <= M`, `K >= 2`, and third-place eligibility.
+1. Accept `T`, `G`, `Q`, the first-place advancement choice, and the third-place choice before any draft data exists.
+2. Validate the power-of-two rules or the special `M` odd/`Q = 3` rule, `T` divisibility, `M >= 2`, `Q <= M`, `K >= 2`, and third-place eligibility.
 3. Derive `M = T / G`.
 4. Create the competition in `DRAFT` and create group ordinals `1` through `G` atomically.
 
@@ -518,6 +524,9 @@ Q = 4:
 2nd vs 3rd
 ```
 
+With first-place advancement enabled, `Q = 3`: 2nd plays 3rd in the first
+round, while 1st is assigned directly to the final to await that winner.
+
 ### Multiple groups
 
 When `G > 1`:
@@ -558,16 +567,28 @@ Match 4: A2 vs B3
 
 This is the same approved cross-seeded pairing set, with deterministic slot placement that puts A1 and B1 in opposite halves of the block.
 
+### First-place advancement
+
+When enabled, each odd-sized group provides exactly three qualifiers. For each
+adjacent group pair `L/R`, the first round contains `L2 vs R3` and `R2 vs L3`.
+In the next round, `L1` meets the winner of `R2 vs L3`, while `R1` meets the
+winner of `L2 vs R3`. Later rounds use the normal fixed winner dependencies.
+For a single group, the first round contains only 2nd vs 3rd and its winner
+feeds the final against 1st. No placeholder match is stored for a bye.
+
 ### Required generator properties
 
 Parameterized pytest unit tests must prove across supported configurations that:
 
-- The first round contains exactly `K / 2` matches.
+- The standard first round contains exactly `K / 2` matches; the first-place
+  advancement format contains `G` first-round matches.
 - Every qualifier appears exactly once.
 - No non-qualifier appears.
 - A team never faces another team from its own group in the first round when `G > 1`.
 - When `Q > 1`, the first-round pairing set cross-seeds higher and lower group positions.
 - Repeated generation from the same standings produces identical match positions and source relationships.
-- Every non-initial knockout match has exactly two valid source matches.
+- Every later-round participant is supplied either by its configured group-winner
+  place or by a valid source match; after the bye round, matches have two valid
+  sources.
 - The final always exists.
 - The third-place match, when enabled, receives the two semifinal losers.

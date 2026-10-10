@@ -80,6 +80,7 @@ def test_admin_mutations_require_an_authorized_session_and_csrf():
         "group_count": 1,
         "total_team_count": 2,
         "qualifiers_per_group": 2,
+        "first_place_bye_enabled": False,
         "third_place_enabled": False,
     }
     anonymous_csrf = client.get("/api/auth/csrf").json()["csrf_token"]
@@ -108,6 +109,33 @@ def test_admin_mutations_require_an_authorized_session_and_csrf():
     )
     assert response.status_code == 201
     assert response.json()["name"] == "Admin Cup"
+    assert response.json()["first_place_bye_enabled"] is False
+
+
+@pytest.mark.django_db
+def test_admin_can_create_odd_group_competition_with_first_place_bye():
+    client, csrf = logged_in_admin_client(username="bye-admin")
+
+    response = json_request(
+        client,
+        "post",
+        "/api/admin/competitions",
+        {
+            "name": "Five Team Cup",
+            "year": 2026,
+            "group_count": 1,
+            "total_team_count": 5,
+            "qualifiers_per_group": 3,
+            "first_place_bye_enabled": True,
+            "third_place_enabled": False,
+        },
+        csrf=csrf,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["knockout_team_count"] == 3
+    assert response.json()["first_place_bye_enabled"] is True
+    assert Competition.objects.get(id=response.json()["id"]).first_place_bye_enabled
 
 
 @pytest.mark.django_db

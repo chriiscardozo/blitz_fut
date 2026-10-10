@@ -19,6 +19,7 @@ class Competition(models.Model):
     group_count = models.PositiveSmallIntegerField()
     teams_per_group = models.PositiveSmallIntegerField()
     qualifiers_per_group = models.PositiveSmallIntegerField()
+    first_place_bye_enabled = models.BooleanField(default=False)
     third_place_enabled = models.BooleanField(default=False)
 
     class Meta:

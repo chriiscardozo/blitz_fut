@@ -20,6 +20,7 @@ def create_competition(
     total_team_count: int,
     qualifiers_per_group: int,
     third_place_enabled: bool,
+    first_place_bye_enabled: bool = False,
 ) -> Competition:
     """Create a configured draft competition and its empty groups atomically."""
 
@@ -36,6 +37,7 @@ def create_competition(
         total_team_count=total_team_count,
         qualifiers_per_group=qualifiers_per_group,
         third_place_enabled=third_place_enabled,
+        first_place_bye_enabled=first_place_bye_enabled,
     )
 
     competition = Competition.objects.create(
@@ -45,6 +47,7 @@ def create_competition(
         group_count=group_count,
         teams_per_group=teams_per_group,
         qualifiers_per_group=qualifiers_per_group,
+        first_place_bye_enabled=first_place_bye_enabled,
         third_place_enabled=third_place_enabled,
     )
     Group.objects.bulk_create(

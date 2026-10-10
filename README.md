@@ -20,8 +20,9 @@ their prompts are available in [docs/ui-previews](docs/ui-previews)._
 
 ## Features
 
-- Configure the number of teams, groups, qualifiers per group, and whether to
-  include a third-place match before creating teams.
+- Configure the number of teams, groups, qualifiers per group, an optional
+  first-place knockout bye for odd-sized groups, and whether to include a
+  third-place match before creating teams.
 - Create teams and reusable players, manage rosters, and assign or randomize
   group membership.
 - Generate a deterministic single round-robin group schedule.
@@ -30,8 +31,8 @@ their prompts are available in [docs/ui-previews](docs/ui-previews)._
 - Derive match scores, standings, qualification positions, top scorers, and top
   assisters from source statistics.
 - Detect unresolved standings ties and record a confirmed drawing-of-lots order.
-- Generate and progress a deterministic single-elimination bracket with a final
-  and optional third-place match.
+- Generate and progress a deterministic single-elimination bracket with an
+  optional first-place bye, a final, and an optional third-place match.
 - Resolve tied knockout matches by selecting the advancing team after penalties,
   without storing an unnecessary penalty score.
 - Provide public, read-only competition pages and a protected administrator
@@ -122,7 +123,7 @@ Run preparation without starting the server:
 
 ## Verification
 
-The backend currently has 114 pytest tests covering the domain services, models,
+The backend currently has 127 pytest tests covering the domain services, models,
 derived reads, authentication, API behavior, and SQLite operations.
 
 ```bash

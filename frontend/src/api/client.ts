@@ -97,6 +97,7 @@ export const api = {
     group_count: number;
     total_team_count: number;
     qualifiers_per_group: number;
+    first_place_bye_enabled: boolean;
     third_place_enabled: boolean;
   }) => request<Competition>("/admin/competitions", {
     method: "POST", body: JSON.stringify(payload),

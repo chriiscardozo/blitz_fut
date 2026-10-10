@@ -11,6 +11,7 @@ def validate_competition_configuration(
     total_team_count: int,
     qualifiers_per_group: int,
     third_place_enabled: bool,
+    first_place_bye_enabled: bool = False,
 ) -> int:
     """Validate initial configuration and return the derived teams per group."""
 
@@ -33,6 +34,8 @@ def validate_competition_configuration(
         add_error(field, "This value must be an integer.")
     if not isinstance(third_place_enabled, bool):
         add_error("third_place_enabled", "This value must be true or false.")
+    if not isinstance(first_place_bye_enabled, bool):
+        add_error("first_place_bye_enabled", "This value must be true or false.")
     if errors:
         raise ValidationError(errors)
 
@@ -57,10 +60,25 @@ def validate_competition_configuration(
                     "Each group must contain at least two teams.",
                 )
 
-    if not _is_power_of_two(qualifiers_per_group):
+    if first_place_bye_enabled and qualifiers_per_group != 3:
+        add_error(
+            "qualifiers_per_group",
+            "First-place advancement requires exactly three qualifiers per group.",
+        )
+    elif not first_place_bye_enabled and not _is_power_of_two(qualifiers_per_group):
         add_error(
             "qualifiers_per_group",
             "The number of qualifiers per group must be a power of two.",
+        )
+
+    if (
+        first_place_bye_enabled
+        and teams_per_group is not None
+        and teams_per_group % 2 == 0
+    ):
+        add_error(
+            "first_place_bye_enabled",
+            "First-place advancement is available only for groups with an odd number of teams.",
         )
 
     if teams_per_group is not None and qualifiers_per_group > teams_per_group:

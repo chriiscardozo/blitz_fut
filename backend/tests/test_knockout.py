@@ -22,6 +22,7 @@ def ready_group_stage(
     teams_per_group: int,
     qualifiers_per_group: int,
     third_place_enabled: bool = False,
+    first_place_bye_enabled: bool = False,
 ) -> Competition:
     competition = create_competition(
         name="Bracket Cup",
@@ -29,6 +30,7 @@ def ready_group_stage(
         group_count=group_count,
         total_team_count=group_count * teams_per_group,
         qualifiers_per_group=qualifiers_per_group,
+        first_place_bye_enabled=first_place_bye_enabled,
         third_place_enabled=third_place_enabled,
     )
     for group in competition.groups.order_by("ordinal"):
@@ -151,6 +153,70 @@ def test_finalization_creates_third_place_from_semifinal_losers():
     assert third_place.source_outcome_b == Match.SourceOutcome.LOSER
     assert third_place.source_match_a.round == rounds[-2]
     assert third_place.source_match_b.round == rounds[-2]
+
+
+@pytest.mark.django_db
+def test_first_place_bye_builds_one_group_semifinal_and_final():
+    competition = ready_group_stage(
+        group_count=1,
+        teams_per_group=5,
+        qualifiers_per_group=3,
+        first_place_bye_enabled=True,
+    )
+
+    rounds = finalize_group_stage(competition=competition, confirmed=True)
+
+    assert [round_.matches.count() for round_ in rounds] == [1, 1]
+    semifinal = rounds[0].matches.select_related("team_a", "team_b").get()
+    assert (semifinal.team_a.name, semifinal.team_b.name) == ("A2", "A3")
+    final = rounds[1].matches.select_related("team_a", "team_b").get()
+    assert final.kind == Match.Kind.FINAL
+    assert final.team_a.name == "A1"
+    assert final.team_b is None
+    assert final.source_match_a is None
+    assert final.source_match_b == semifinal
+
+    complete_or_correct_match(
+        match=semifinal,
+        team_a_result=TeamResult(team_id=semifinal.team_a_id),
+        team_b_result=TeamResult(team_id=semifinal.team_b_id),
+        shootout_winner_id=semifinal.team_a_id,
+    )
+    final.refresh_from_db()
+    assert final.team_b_id == semifinal.team_a_id
+
+
+@pytest.mark.django_db
+def test_first_place_byes_cross_seed_two_groups_and_support_third_place():
+    competition = ready_group_stage(
+        group_count=2,
+        teams_per_group=5,
+        qualifiers_per_group=3,
+        first_place_bye_enabled=True,
+        third_place_enabled=True,
+    )
+
+    rounds = finalize_group_stage(competition=competition, confirmed=True)
+
+    assert [round_.matches.count() for round_ in rounds] == [2, 2, 2]
+    first_round_pairs = [
+        (match.team_a.name, match.team_b.name)
+        for match in rounds[0].matches.select_related("team_a", "team_b")
+    ]
+    assert first_round_pairs == [("A2", "B3"), ("B2", "A3")]
+    semifinals = list(
+        rounds[1].matches.select_related("team_a", "source_match_b").order_by(
+            "position"
+        )
+    )
+    assert [match.team_a.name for match in semifinals] == ["A1", "B1"]
+    assert [match.source_match_b for match in semifinals] == [
+        rounds[0].matches.get(position=2),
+        rounds[0].matches.get(position=1),
+    ]
+    third_place = rounds[-1].matches.get(kind=Match.Kind.THIRD_PLACE)
+    assert third_place.source_match_a == semifinals[0]
+    assert third_place.source_match_b == semifinals[1]
 
 
 @pytest.mark.django_db

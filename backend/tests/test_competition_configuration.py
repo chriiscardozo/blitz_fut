@@ -122,3 +122,35 @@ def test_rejects_third_place_match_without_semifinals():
         )
 
     assert "third_place_enabled" in error.value.message_dict
+
+
+def test_accepts_first_place_bye_for_three_qualifiers_in_odd_sized_groups():
+    teams_per_group = validate_competition_configuration(
+        group_count=1,
+        total_team_count=5,
+        qualifiers_per_group=3,
+        third_place_enabled=False,
+        first_place_bye_enabled=True,
+    )
+
+    assert teams_per_group == 5
+
+
+@pytest.mark.parametrize(
+    ("total_team_count", "qualifiers_per_group"),
+    [(4, 3), (5, 2), (5, 4)],
+)
+def test_rejects_invalid_first_place_bye_configuration(
+    total_team_count: int,
+    qualifiers_per_group: int,
+):
+    with pytest.raises(ValidationError) as error:
+        validate_competition_configuration(
+            group_count=1,
+            total_team_count=total_team_count,
+            qualifiers_per_group=qualifiers_per_group,
+            third_place_enabled=False,
+            first_place_bye_enabled=True,
+        )
+
+    assert error.value.message_dict

@@ -124,6 +124,118 @@ def _create_knockout_bracket(
     return rounds
 
 
+def _create_first_place_bye_bracket(
+    *,
+    competition: Competition,
+    group_qualifiers: Sequence[Sequence[int]],
+) -> list[Round]:
+    """Create a three-qualifier-per-group bracket with group winners advanced."""
+
+    group_count = len(group_qualifiers)
+    if group_count < 1 or group_count & (group_count - 1):
+        raise ValueError("The number of groups must be a power of two.")
+    if any(len(qualifiers) != 3 for qualifiers in group_qualifiers):
+        raise ValueError("Every group must provide exactly three qualifiers.")
+    qualifier_ids = [team_id for group in group_qualifiers for team_id in group]
+    if len(set(qualifier_ids)) != len(qualifier_ids):
+        raise ValueError("A qualifier may appear only once in the bracket.")
+
+    round_count = int(log2(group_count)) + 2
+    rounds = [
+        Round.objects.create(
+            competition=competition,
+            stage=Round.Stage.KNOCKOUT,
+            number=number,
+        )
+        for number in range(1, round_count + 1)
+    ]
+
+    first_matches: list[Match] = []
+    if group_count == 1:
+        qualifiers = group_qualifiers[0]
+        first_matches.append(
+            Match.objects.create(
+                round=rounds[0],
+                position=1,
+                team_a_id=qualifiers[1],
+                team_b_id=qualifiers[2],
+            )
+        )
+    else:
+        for group_index in range(0, group_count, 2):
+            left = group_qualifiers[group_index]
+            right = group_qualifiers[group_index + 1]
+            first_matches.extend(
+                [
+                    Match.objects.create(
+                        round=rounds[0],
+                        position=len(first_matches) + 1,
+                        team_a_id=left[1],
+                        team_b_id=right[2],
+                    ),
+                    Match.objects.create(
+                        round=rounds[0],
+                        position=len(first_matches) + 2,
+                        team_a_id=right[1],
+                        team_b_id=left[2],
+                    ),
+                ]
+            )
+
+    second_matches: list[Match] = []
+    for group_index, qualifiers in enumerate(group_qualifiers):
+        if group_count == 1:
+            source_match = first_matches[0]
+        elif group_index % 2 == 0:
+            source_match = first_matches[group_index + 1]
+        else:
+            source_match = first_matches[group_index - 1]
+        second_matches.append(
+            Match.objects.create(
+                round=rounds[1],
+                position=group_index + 1,
+                kind=Match.Kind.FINAL if round_count == 2 else Match.Kind.REGULAR,
+                team_a_id=qualifiers[0],
+                source_match_b=source_match,
+                source_outcome_b=Match.SourceOutcome.WINNER,
+            )
+        )
+
+    previous_matches = second_matches
+    for round_index in range(2, round_count):
+        current_matches: list[Match] = []
+        for position in range(1, len(previous_matches) // 2 + 1):
+            current_matches.append(
+                Match.objects.create(
+                    round=rounds[round_index],
+                    position=position,
+                    kind=(
+                        Match.Kind.FINAL
+                        if round_index == round_count - 1
+                        else Match.Kind.REGULAR
+                    ),
+                    source_match_a=previous_matches[(position - 1) * 2],
+                    source_outcome_a=Match.SourceOutcome.WINNER,
+                    source_match_b=previous_matches[(position - 1) * 2 + 1],
+                    source_outcome_b=Match.SourceOutcome.WINNER,
+                )
+            )
+        previous_matches = current_matches
+
+    if competition.third_place_enabled:
+        semifinals = list(rounds[-2].matches.order_by("position"))
+        Match.objects.create(
+            round=rounds[-1],
+            position=2,
+            kind=Match.Kind.THIRD_PLACE,
+            source_match_a=semifinals[0],
+            source_outcome_a=Match.SourceOutcome.LOSER,
+            source_match_b=semifinals[1],
+            source_outcome_b=Match.SourceOutcome.LOSER,
+        )
+    return rounds
+
+
 @transaction.atomic
 def finalize_group_stage(
     *,
@@ -197,11 +309,17 @@ def finalize_group_stage(
             }
         )
 
-    ordered_team_ids = build_knockout_team_order(group_qualifiers)
-    rounds = _create_knockout_bracket(
-        competition=competition,
-        ordered_team_ids=ordered_team_ids,
-    )
+    if competition.first_place_bye_enabled:
+        rounds = _create_first_place_bye_bracket(
+            competition=competition,
+            group_qualifiers=group_qualifiers,
+        )
+    else:
+        ordered_team_ids = build_knockout_team_order(group_qualifiers)
+        rounds = _create_knockout_bracket(
+            competition=competition,
+            ordered_team_ids=ordered_team_ids,
+        )
     competition.status = Competition.Status.KNOCKOUT
     competition.save(update_fields=["status"])
     return rounds

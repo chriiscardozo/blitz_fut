@@ -14,6 +14,7 @@ class CompetitionCreateIn(Schema):
     group_count: int = Field(ge=1, le=32_767)
     total_team_count: int = Field(ge=2, le=32_767)
     qualifiers_per_group: int = Field(ge=1, le=32_767)
+    first_place_bye_enabled: bool = False
     third_place_enabled: bool = False
 
 
@@ -39,6 +40,7 @@ class CompetitionOut(Schema):
     total_team_count: int
     qualifiers_per_group: int
     knockout_team_count: int
+    first_place_bye_enabled: bool
     third_place_enabled: bool
 
 
